@@ -217,33 +217,53 @@ async function transcribeWithDjelia(audioBlob) {
 }
 
 /**
+ * Obtenir une signed URL pour se connecter à l'agent ElevenLabs
+ */
+async function getElevenLabsSignedUrl() {
+    try {
+        const response = await fetch(
+            `https://api.elevenlabs.io/v1/convai/conversation/get-signed-url?agent_id=${ELEVENLABS_AGENT_ID}`,
+            {
+                method: 'GET',
+                headers: {
+                    'xi-api-key': ELEVENLABS_API_KEY
+                }
+            }
+        );
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Erreur obtention signed URL (${response.status}): ${errorText}`);
+        }
+
+        const data = await response.json();
+        console.log('Signed URL obtenue');
+        return data.signed_url;
+
+    } catch (error) {
+        console.error('Erreur signed URL:', error);
+        throw error;
+    }
+}
+
+/**
  * Conversation avec ElevenLabs via WebSocket
  */
 async function conversationWithElevenLabs(text) {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
         try {
-            // Créer la connexion WebSocket
-            const wsUrl = `wss://api.elevenlabs.io/v1/convai/conversation?agent_id=${ELEVENLABS_AGENT_ID}`;
-            elevenLabsWs = new WebSocket(wsUrl);
+            // Obtenir la signed URL
+            const signedUrl = await getElevenLabsSignedUrl();
+            console.log('Connexion à ElevenLabs avec signed URL...');
+
+            // Créer la connexion WebSocket avec la signed URL
+            elevenLabsWs = new WebSocket(signedUrl);
 
             const audioChunksResponse = [];
             let conversationEnded = false;
 
             elevenLabsWs.onopen = () => {
                 console.log('WebSocket ElevenLabs connecté');
-
-                // Envoyer la configuration initiale
-                const initMessage = {
-                    type: 'conversation_initiation_client_data',
-                    conversation_config_override: {
-                        agent: {
-                            prompt: {
-                                prompt: 'Tu es un assistant qui parle bambara.'
-                            }
-                        }
-                    }
-                };
-                elevenLabsWs.send(JSON.stringify(initMessage));
 
                 // Envoyer le message texte de l'utilisateur
                 const userMessage = {
