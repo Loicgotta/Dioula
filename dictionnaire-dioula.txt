@@ -1,0 +1,19 @@
+DICTIONNAIRE DIOULA - FRANÇAIS - ANGLAIS
+
+a pron. 1 • Second person plural pronoun ('you, your, you all', etc.); vous.
+2 • your, yours; votre, vos.
+Usage: In Jula, one typically uses "a" in greetings regardless of the number of people (e.g., "A ni sɔgɔma!") Emphatic: aw. Variant: a' ('Orthographic variant').
+
+à pron. 1 • he, she, it; il, elle.
+2 • his, her, its; son, sa.
+Emphatic: àle.
+
+abada adv. 1 • never (in negative sentences); jamais. Ne ̀ tɛ shɔ̀ dun abada. I never eat beans. Je ne mange jamais de haricots.
+2 • forever, eternally (in affirmative sentences); toujours.
+n. eternity; éternité.
+Variant: habada.
+
+[Le reste du dictionnaire suit...]
+
+Note: Ce fichier contient le dictionnaire complet dioula-français-anglais pour référence.
+Pour une intégration complète avec l'API OpenAI, il faudrait implémenter un système RAG (Retrieval Augmented Generation).

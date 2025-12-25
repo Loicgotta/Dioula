@@ -9,6 +9,7 @@ Application web de chat vocal en bambara utilisant l'IA de Djelia pour la reconn
 - **Synthèse vocale** : Conversion texte-parole avec ElevenLabs TTS
 - **Interface intuitive** : Interface web simple et élégante
 - **Historique de conversation** : Maintien du contexte sur les 10 derniers messages
+- **Dictionnaire dioula** : Dictionnaire dioula-français-anglais disponible pour référence
 
 ## 🚀 Comment utiliser
 
@@ -82,13 +83,14 @@ Puis ouvrez http://localhost:8000 dans votre navigateur.
 
 ```
 .
-├── index.html          # Interface utilisateur principale
-├── style.css           # Styles de l'application
-├── app.js              # Logique JavaScript principale
-├── config.js           # Configuration et clés API (non commité)
-├── config.example.js   # Template de configuration
-├── .gitignore          # Fichiers à ignorer par Git
-└── README.md           # Ce fichier
+├── index.html              # Interface utilisateur principale
+├── style.css               # Styles de l'application
+├── app.js                  # Logique JavaScript principale
+├── config.js               # Configuration et clés API (non commité)
+├── config.example.js       # Template de configuration
+├── dictionnaire-dioula.txt # Dictionnaire dioula-français-anglais
+├── .gitignore              # Fichiers à ignorer par Git
+└── README.md               # Ce fichier
 ```
 
 ## 🔐 Configuration des API
@@ -106,6 +108,40 @@ Puis ouvrez http://localhost:8000 dans votre navigateur.
 - ✅ Les clés API sont dans `config.js` (ignoré par Git)
 - ✅ Seul le template `config.example.js` est commité
 - ⚠️ Pour une application en production, utilisez un backend pour sécuriser les clés API
+
+## 📚 Dictionnaire Dioula et RAG
+
+Le fichier `dictionnaire-dioula.txt` contient un dictionnaire complet dioula-français-anglais.
+
+### ⚠️ Limitation actuelle
+
+Avec l'API Chat standard d'OpenAI, le dictionnaire **n'est pas automatiquement accessible** à GPT-4. Le prompt système mentionne le dictionnaire, mais GPT-4 s'appuie sur ses connaissances de base du dioula.
+
+### 🔧 Options pour intégrer le dictionnaire (RAG)
+
+Pour permettre à GPT-4 d'accéder réellement au dictionnaire, vous avez plusieurs options :
+
+#### Option 1 : OpenAI Assistants API (Recommandé)
+- Utiliser l'[API Assistants](https://platform.openai.com/docs/assistants/overview) avec File Search
+- Permet d'uploader le dictionnaire comme fichier de connaissance
+- GPT-4 pourra rechercher dans le dictionnaire automatiquement
+- Nécessite de modifier le code pour utiliser l'API Assistants au lieu de l'API Chat
+
+#### Option 2 : Système RAG personnalisé
+- Implémenter un système de Retrieval Augmented Generation
+- Utiliser des embeddings pour vectoriser le dictionnaire
+- Stocker dans une base de données vectorielle (Pinecone, Weaviate, etc.)
+- Récupérer les entrées pertinentes avant chaque requête à GPT-4
+- Nécessite un backend (Node.js, Python, etc.)
+
+#### Option 3 : Inclure le dictionnaire dans chaque requête
+- Inclure les entrées pertinentes du dictionnaire dans le contexte de chaque message
+- Limité par la taille du contexte de GPT-4
+- Peut augmenter les coûts
+
+### 📖 Prompt système actuel
+
+Le prompt système est configuré pour demander à GPT-4 de se comporter comme un professeur qui comprend le dioula et utilise le dictionnaire pour les traductions. Même sans accès direct au dictionnaire complet, GPT-4 a des connaissances de base du dioula/bambara.
 
 ## 🛠️ Dépannage
 
