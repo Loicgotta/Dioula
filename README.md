@@ -1,15 +1,29 @@
-# Chat Vocal Bambara avec Djelia et ElevenLabs
+# Chat Vocal Bambara avec Djelia, OpenAI GPT-4 et ElevenLabs
 
-Application web de chat vocal en bambara utilisant l'IA de Djelia pour la reconnaissance vocale et ElevenLabs pour les réponses conversationnelles.
+Application web de chat vocal en bambara utilisant l'IA de Djelia pour la reconnaissance vocale, OpenAI GPT-4 pour la génération de réponses intelligentes, et ElevenLabs pour la synthèse vocale.
 
 ## 🌟 Fonctionnalités
 
 - **Reconnaissance vocale en bambara** : Utilise l'API Djelia pour transcrire la parole en bambara
-- **Conversation IA** : Agent conversationnel ElevenLabs pour des réponses naturelles
+- **IA GPT-4** : Génération de réponses intelligentes avec OpenAI GPT-4
+- **Synthèse vocale** : Conversion texte-parole avec ElevenLabs TTS
 - **Interface intuitive** : Interface web simple et élégante
-- **Audio en temps réel** : Réponses vocales de l'assistant
+- **Historique de conversation** : Maintien du contexte sur les 10 derniers messages
 
 ## 🚀 Comment utiliser
+
+### Configuration initiale
+
+1. **Copiez le fichier de configuration** :
+   ```bash
+   cp config.example.js config.js
+   ```
+
+2. **Remplissez vos clés API** dans `config.js` :
+   - Clé API Djelia
+   - Clé API OpenAI
+   - Clé API ElevenLabs
+   - ID de voix ElevenLabs
 
 ### Lancement de l'application
 
@@ -19,7 +33,8 @@ Application web de chat vocal en bambara utilisant l'IA de Djelia pour la reconn
 4. Cliquez à nouveau pour arrêter l'enregistrement
 5. L'application va :
    - Transcrire votre parole avec Djelia
-   - Envoyer la transcription à l'agent ElevenLabs
+   - Générer une réponse avec OpenAI GPT-4
+   - Synthétiser la réponse en audio avec ElevenLabs TTS
    - Afficher et jouer la réponse
 
 ### Serveur local (recommandé)
@@ -51,11 +66,17 @@ Puis ouvrez http://localhost:8000 dans votre navigateur.
 - **Authentification** : Header `x-api-key`
 - **Documentation** : [djelia.cloud](https://www.djelia.cloud/)
 
-### ElevenLabs Conversational AI
-- **Service** : Agent conversationnel vocal
-- **Connexion** : WebSocket `wss://api.elevenlabs.io/v1/convai/conversation`
-- **Agent ID** : `agent_7801k3yd7xb4fgfva2r76j2fk9dm`
-- **Documentation** : [ElevenLabs Docs](https://elevenlabs.io/docs/agents-platform/overview)
+### OpenAI GPT-4
+- **Service** : Génération de réponses intelligentes
+- **Modèle** : `gpt-4-turbo`
+- **Endpoint** : `https://api.openai.com/v1/chat/completions`
+- **Documentation** : [OpenAI API](https://platform.openai.com/docs)
+
+### ElevenLabs Text-to-Speech
+- **Service** : Synthèse vocale (Text-to-Speech)
+- **Modèle** : `eleven_multilingual_v2`
+- **Endpoint** : `https://api.elevenlabs.io/v1/text-to-speech`
+- **Documentation** : [ElevenLabs TTS Docs](https://elevenlabs.io/docs/api-reference/text-to-speech)
 
 ## 📁 Structure du projet
 
@@ -63,25 +84,28 @@ Puis ouvrez http://localhost:8000 dans votre navigateur.
 .
 ├── index.html          # Interface utilisateur principale
 ├── style.css           # Styles de l'application
-├── app.js              # Logique JavaScript
+├── app.js              # Logique JavaScript principale
+├── config.js           # Configuration et clés API (non commité)
+├── config.example.js   # Template de configuration
+├── .gitignore          # Fichiers à ignorer par Git
 └── README.md           # Ce fichier
 ```
 
 ## 🔐 Configuration des API
 
-Les clés API sont actuellement intégrées dans le code (`app.js`). Pour la production, il est recommandé de :
+**IMPORTANT** : Les clés API sont stockées dans `config.js` qui n'est **pas commité** sur Git pour des raisons de sécurité.
 
-1. Utiliser des variables d'environnement
-2. Créer un backend pour sécuriser les clés
-3. Implémenter une authentification utilisateur
+### Configuration locale
 
-### Clés actuelles (à modifier pour la production)
+1. Copiez `config.example.js` vers `config.js`
+2. Remplissez vos propres clés API dans `config.js`
+3. Ne partagez jamais votre fichier `config.js`
 
-```javascript
-const DJELIA_API_KEY = '4cc23e20-129b-42a0-af09-ca814e9ac23b';
-const ELEVENLABS_API_KEY = 'sk_e08a92815b5e911d119065275c82377c0396f3b0b2d80750';
-const ELEVENLABS_AGENT_ID = 'agent_7801k3yd7xb4fgfva2r76j2fk9dm';
-```
+### Sécurité
+
+- ✅ Les clés API sont dans `config.js` (ignoré par Git)
+- ✅ Seul le template `config.example.js` est commité
+- ⚠️ Pour une application en production, utilisez un backend pour sécuriser les clés API
 
 ## 🛠️ Dépannage
 
@@ -110,8 +134,10 @@ const ELEVENLABS_AGENT_ID = 'agent_7801k3yd7xb4fgfva2r76j2fk9dm';
 ## 📚 Ressources
 
 - [Documentation Djelia](https://www.djelia.cloud/)
-- [Documentation ElevenLabs Agents](https://elevenlabs.io/docs/agents-platform/overview)
-- [WebSocket API ElevenLabs](https://elevenlabs.io/docs/agents-platform/libraries/web-sockets)
+- [Documentation OpenAI](https://platform.openai.com/docs)
+- [Documentation ElevenLabs TTS](https://elevenlabs.io/docs/api-reference/text-to-speech)
+- [Obtenir une clé API OpenAI](https://platform.openai.com/api-keys)
+- [Obtenir une clé API ElevenLabs](https://elevenlabs.io/app/settings/api-keys)
 
 ## 🤝 Contribution
 

@@ -1,9 +1,6 @@
-// Configuration des API
-const DJELIA_API_KEY = '4cc23e20-129b-42a0-af09-ca814e9ac23b';
-const DJELIA_API_URL = 'https://djelia.cloud/api/v1/models/transcribe';
-
-const ELEVENLABS_API_KEY = 'sk_e08a92815b5e911d119065275c82377c0396f3b0b2d80750';
-const ELEVENLABS_AGENT_ID = 'agent_7801k3yd7xb4fgfva2r76j2fk9dm';
+// Configuration chargée depuis config.js
+// IMPORTANT: Assurez-vous que config.js existe (copiez config.example.js et remplissez vos clés API)
+// Les clés API sont dans config.js qui n'est pas commité sur Git pour des raisons de sécurité
 
 // Éléments du DOM
 const recordBtn = document.getElementById('recordBtn');
@@ -17,7 +14,7 @@ const audioPlayerContainer = document.getElementById('audioPlayerContainer');
 let mediaRecorder = null;
 let audioChunks = [];
 let isRecording = false;
-let elevenLabsWs = null;
+let conversationHistory = [];
 
 // Initialisation au chargement de la page
 document.addEventListener('DOMContentLoaded', () => {
@@ -112,7 +109,7 @@ function stopRecording() {
 }
 
 /**
- * Traite l'audio enregistré: transcription puis envoi à ElevenLabs
+ * Traite l'audio enregistré: transcription, génération de réponse avec OpenAI, puis synthèse vocale
  */
 async function processAudio(audioBlob) {
     try {
@@ -127,9 +124,20 @@ async function processAudio(audioBlob) {
         // Afficher le message de l'utilisateur
         addMessage('user', transcript);
 
-        // Étape 2: Envoyer à ElevenLabs et recevoir la réponse
-        updateStatus('🤖 Génération de la réponse...', 'active');
-        await conversationWithElevenLabs(transcript);
+        // Étape 2: Générer la réponse avec OpenAI GPT-4
+        updateStatus('🤖 Génération de la réponse avec GPT-4...', 'active');
+        const aiResponse = await generateResponseWithOpenAI(transcript);
+
+        if (!aiResponse) {
+            throw new Error('Aucune réponse reçue de OpenAI');
+        }
+
+        // Afficher la réponse de l'assistant
+        addMessage('assistant', aiResponse);
+
+        // Étape 3: Synthèse vocale avec ElevenLabs
+        updateStatus('🔊 Synthèse vocale...', 'active');
+        await synthesizeSpeechWithElevenLabs(aiResponse);
 
     } catch (error) {
         console.error('Erreur de traitement:', error);
@@ -162,10 +170,10 @@ async function transcribeWithDjelia(audioBlob) {
         const formData = new FormData();
         formData.append('file', audioBlob, filename);
 
-        const response = await fetch(DJELIA_API_URL, {
+        const response = await fetch(CONFIG.DJELIA.API_URL, {
             method: 'POST',
             headers: {
-                'x-api-key': DJELIA_API_KEY
+                'x-api-key': CONFIG.DJELIA.API_KEY
             },
             body: formData
         });
@@ -217,170 +225,110 @@ async function transcribeWithDjelia(audioBlob) {
 }
 
 /**
- * Obtenir une signed URL pour se connecter à l'agent ElevenLabs
+ * Génère une réponse avec OpenAI GPT-4
  */
-async function getElevenLabsSignedUrl() {
+async function generateResponseWithOpenAI(userMessage) {
     try {
-        const response = await fetch(
-            `https://api.elevenlabs.io/v1/convai/conversation/get-signed-url?agent_id=${ELEVENLABS_AGENT_ID}`,
+        // Ajouter le message de l'utilisateur à l'historique
+        conversationHistory.push({
+            role: 'user',
+            content: userMessage
+        });
+
+        // Préparer les messages pour OpenAI
+        const messages = [
             {
-                method: 'GET',
-                headers: {
-                    'xi-api-key': ELEVENLABS_API_KEY
-                }
-            }
-        );
+                role: 'system',
+                content: CONFIG.SYSTEM_PROMPT
+            },
+            ...conversationHistory
+        ];
+
+        console.log('Envoi à OpenAI:', { model: CONFIG.OPENAI.MODEL, messages });
+
+        const response = await fetch(CONFIG.OPENAI.API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${CONFIG.OPENAI.API_KEY}`
+            },
+            body: JSON.stringify({
+                model: CONFIG.OPENAI.MODEL,
+                messages: messages,
+                temperature: 0.7,
+                max_tokens: 500
+            })
+        });
 
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`Erreur obtention signed URL (${response.status}): ${errorText}`);
+            throw new Error(`Erreur OpenAI (${response.status}): ${errorText}`);
         }
 
         const data = await response.json();
-        console.log('Signed URL obtenue');
-        return data.signed_url;
+        console.log('Réponse OpenAI:', data);
+
+        const assistantMessage = data.choices[0].message.content;
+
+        // Ajouter la réponse à l'historique
+        conversationHistory.push({
+            role: 'assistant',
+            content: assistantMessage
+        });
+
+        // Limiter l'historique à 10 messages pour éviter de dépasser les limites
+        if (conversationHistory.length > 10) {
+            conversationHistory = conversationHistory.slice(-10);
+        }
+
+        return assistantMessage;
 
     } catch (error) {
-        console.error('Erreur signed URL:', error);
-        throw error;
+        console.error('Erreur OpenAI:', error);
+        throw new Error('Échec de la génération de réponse: ' + error.message);
     }
 }
 
 /**
- * Conversation avec ElevenLabs via WebSocket
+ * Synthèse vocale avec ElevenLabs Text-to-Speech
  */
-async function conversationWithElevenLabs(text) {
-    return new Promise(async (resolve, reject) => {
-        try {
-            // Obtenir la signed URL
-            const signedUrl = await getElevenLabsSignedUrl();
-            console.log('Connexion à ElevenLabs avec signed URL...');
+async function synthesizeSpeechWithElevenLabs(text) {
+    try {
+        console.log('Envoi à ElevenLabs TTS:', text);
 
-            // Créer la connexion WebSocket avec la signed URL
-            elevenLabsWs = new WebSocket(signedUrl);
-
-            const audioChunksResponse = [];
-            let conversationEnded = false;
-
-            elevenLabsWs.onopen = () => {
-                console.log('WebSocket ElevenLabs connecté');
-
-                // Envoyer le message texte de l'utilisateur
-                const userMessage = {
-                    type: 'user_message',
-                    text: text
-                };
-
-                setTimeout(() => {
-                    elevenLabsWs.send(JSON.stringify(userMessage));
-                    console.log('Message envoyé à ElevenLabs:', text);
-                }, 100);
-            };
-
-            elevenLabsWs.onmessage = async (event) => {
-                try {
-                    // Si c'est un message binaire (audio)
-                    if (event.data instanceof Blob) {
-                        audioChunksResponse.push(event.data);
-                        console.log('Chunk audio reçu');
-                        return;
-                    }
-
-                    // Si c'est un message JSON
-                    const message = JSON.parse(event.data);
-                    console.log('Message ElevenLabs:', message);
-
-                    switch (message.type) {
-                        case 'conversation_initiation_metadata':
-                            console.log('Conversation initialisée');
-                            break;
-
-                        case 'audio':
-                            // Audio encodé en base64 dans certains cas
-                            if (message.audio_event && message.audio_event.audio) {
-                                const audioData = base64ToBlob(message.audio_event.audio);
-                                audioChunksResponse.push(audioData);
-                            }
-                            break;
-
-                        case 'agent_response':
-                            // Réponse textuelle de l'agent
-                            if (message.agent_response) {
-                                addMessage('assistant', message.agent_response);
-                            }
-                            break;
-
-                        case 'interruption':
-                            console.log('Interruption détectée');
-                            break;
-
-                        case 'ping':
-                            // Répondre au ping avec un pong
-                            elevenLabsWs.send(JSON.stringify({ type: 'pong', event_id: message.event_id }));
-                            break;
-
-                        case 'conversation_ended':
-                            conversationEnded = true;
-                            console.log('Conversation terminée');
-
-                            // Traiter l'audio reçu
-                            if (audioChunksResponse.length > 0) {
-                                const audioBlob = new Blob(audioChunksResponse, { type: 'audio/mpeg' });
-                                playAudio(audioBlob);
-                            }
-
-                            elevenLabsWs.close();
-                            resolve();
-                            break;
-
-                        case 'error':
-                            throw new Error(message.message || 'Erreur ElevenLabs');
-                    }
-
-                } catch (error) {
-                    console.error('Erreur traitement message:', error);
+        const response = await fetch(`${CONFIG.ELEVENLABS.TTS_URL}/${CONFIG.ELEVENLABS.VOICE_ID}`, {
+            method: 'POST',
+            headers: {
+                'Accept': 'audio/mpeg',
+                'Content-Type': 'application/json',
+                'xi-api-key': CONFIG.ELEVENLABS.API_KEY
+            },
+            body: JSON.stringify({
+                text: text,
+                model_id: 'eleven_multilingual_v2',
+                voice_settings: {
+                    stability: 0.5,
+                    similarity_boost: 0.75
                 }
-            };
+            })
+        });
 
-            elevenLabsWs.onerror = (error) => {
-                console.error('Erreur WebSocket:', error);
-                reject(new Error('Erreur de connexion à ElevenLabs'));
-            };
-
-            elevenLabsWs.onclose = () => {
-                console.log('WebSocket fermé');
-                if (!conversationEnded) {
-                    resolve(); // Résoudre même si pas de message de fin explicite
-                }
-            };
-
-            // Timeout de sécurité
-            setTimeout(() => {
-                if (elevenLabsWs.readyState !== WebSocket.CLOSED) {
-                    elevenLabsWs.close();
-                    reject(new Error('Timeout de la conversation'));
-                }
-            }, 30000); // 30 secondes
-
-        } catch (error) {
-            reject(error);
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Erreur ElevenLabs TTS (${response.status}): ${errorText}`);
         }
-    });
-}
 
-/**
- * Convertit une chaîne base64 en Blob
- */
-function base64ToBlob(base64, contentType = 'audio/mpeg') {
-    const byteCharacters = atob(base64);
-    const byteNumbers = new Array(byteCharacters.length);
+        // La réponse est directement l'audio en format MP3
+        const audioBlob = await response.blob();
+        console.log('Audio reçu de ElevenLabs:', audioBlob.size, 'bytes');
 
-    for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
+        // Jouer l'audio
+        playAudio(audioBlob);
+
+    } catch (error) {
+        console.error('Erreur ElevenLabs TTS:', error);
+        throw new Error('Échec de la synthèse vocale: ' + error.message);
     }
-
-    const byteArray = new Uint8Array(byteNumbers);
-    return new Blob([byteArray], { type: contentType });
 }
 
 /**
