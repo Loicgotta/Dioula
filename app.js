@@ -247,8 +247,8 @@ async function conversationWithElevenLabs(text) {
 
                 // Envoyer le message texte de l'utilisateur
                 const userMessage = {
-                    type: 'user_input',
-                    user_input: text
+                    type: 'user_message',
+                    text: text
                 };
 
                 setTimeout(() => {
