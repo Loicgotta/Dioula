@@ -43,9 +43,28 @@ async function startRecording() {
     try {
         updateStatus('Demande d\'accès au microphone...');
 
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                channelCount: 1,
+                sampleRate: 16000,
+                echoCancellation: true,
+                noiseSuppression: true
+            }
+        });
 
-        mediaRecorder = new MediaRecorder(stream);
+        // Essayer différents formats audio supportés
+        let mimeType = 'audio/webm';
+        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+            mimeType = 'audio/webm;codecs=opus';
+        } else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
+            mimeType = 'audio/ogg;codecs=opus';
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+            mimeType = 'audio/mp4';
+        }
+
+        console.log('Format audio utilisé:', mimeType);
+
+        mediaRecorder = new MediaRecorder(stream, { mimeType });
         audioChunks = [];
 
         mediaRecorder.ondataavailable = (event) => {
@@ -55,7 +74,8 @@ async function startRecording() {
         };
 
         mediaRecorder.onstop = async () => {
-            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            const audioBlob = new Blob(audioChunks, { type: mimeType });
+            console.log('Audio capturé - Taille:', audioBlob.size, 'bytes, Type:', audioBlob.type);
             await processAudio(audioBlob);
 
             // Arrêter le stream pour libérer le micro
@@ -127,8 +147,20 @@ async function processAudio(audioBlob) {
  */
 async function transcribeWithDjelia(audioBlob) {
     try {
+        // Déterminer l'extension de fichier en fonction du type MIME
+        let filename = 'audio.webm';
+        if (audioBlob.type.includes('ogg')) {
+            filename = 'audio.ogg';
+        } else if (audioBlob.type.includes('mp4')) {
+            filename = 'audio.mp4';
+        } else if (audioBlob.type.includes('wav')) {
+            filename = 'audio.wav';
+        }
+
+        console.log('Envoi à Djelia - Fichier:', filename, 'Type:', audioBlob.type, 'Taille:', audioBlob.size);
+
         const formData = new FormData();
-        formData.append('file', audioBlob, 'audio.wav');
+        formData.append('file', audioBlob, filename);
 
         const response = await fetch(DJELIA_API_URL, {
             method: 'POST',
@@ -144,15 +176,35 @@ async function transcribeWithDjelia(audioBlob) {
         }
 
         const data = await response.json();
-        console.log('Réponse Djelia:', data);
+        console.log('Réponse Djelia complète:', JSON.stringify(data, null, 2));
 
-        // La réponse peut varier, adapter selon la structure réelle de l'API
-        const transcript = data.text || data.transcription || data.transcript || '';
+        // Chercher la transcription dans différentes structures possibles
+        let transcript = '';
 
-        if (!transcript) {
-            throw new Error('Transcription vide');
+        // Vérifier plusieurs chemins possibles dans la réponse
+        if (data.text) {
+            transcript = data.text;
+        } else if (data.transcription) {
+            transcript = data.transcription;
+        } else if (data.transcript) {
+            transcript = data.transcript;
+        } else if (data.results && data.results.length > 0) {
+            transcript = data.results[0].text || data.results[0].transcript || '';
+        } else if (data.data && data.data.text) {
+            transcript = data.data.text;
+        } else if (typeof data === 'string') {
+            transcript = data;
         }
 
+        // Nettoyer la transcription
+        transcript = transcript.trim();
+
+        if (!transcript) {
+            console.error('Structure de réponse inattendue:', data);
+            throw new Error('Transcription vide. Structure de réponse: ' + JSON.stringify(data));
+        }
+
+        console.log('Transcription extraite:', transcript);
         return transcript;
 
     } catch (error) {
