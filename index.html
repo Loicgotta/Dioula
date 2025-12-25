@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Vocal Bambara - Djelia & ElevenLabs</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>💬 Chat Vocal Bambara</h1>
+            <p>Parlez en bambara et conversez avec l'IA</p>
+        </header>
+
+        <div class="chat-container">
+            <div id="messages" class="messages">
+                <div class="message system">
+                    <p>Cliquez sur le bouton microphone pour commencer à parler en bambara...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button id="recordBtn" class="record-btn">
+                <span class="mic-icon">🎤</span>
+                <span class="btn-text">Appuyer pour parler</span>
+            </button>
+            <div id="status" class="status">Prêt</div>
+        </div>
+
+        <div class="audio-player-container" id="audioPlayerContainer" style="display: none;">
+            <audio id="audioPlayer" controls></audio>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
