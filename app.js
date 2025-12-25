@@ -181,8 +181,11 @@ async function transcribeWithDjelia(audioBlob) {
         // Chercher la transcription dans différentes structures possibles
         let transcript = '';
 
-        // Vérifier plusieurs chemins possibles dans la réponse
-        if (data.text) {
+        // Djelia renvoie un tableau d'objets avec {text, start, end}
+        if (Array.isArray(data) && data.length > 0) {
+            // Combiner tous les segments de texte
+            transcript = data.map(segment => segment.text).join(' ');
+        } else if (data.text) {
             transcript = data.text;
         } else if (data.transcription) {
             transcript = data.transcription;
