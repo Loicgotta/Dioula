@@ -15,11 +15,15 @@ let mediaRecorder = null;
 let audioChunks = [];
 let isRecording = false;
 let conversationHistory = [];
+let threadId = null; // Thread ID pour l'Assistants API
 
 // Initialisation au chargement de la page
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     console.log('Application initialisée');
     recordBtn.addEventListener('click', toggleRecording);
+
+    // Créer un thread pour la conversation
+    await createThread();
 });
 
 /**
@@ -225,66 +229,153 @@ async function transcribeWithDjelia(audioBlob) {
 }
 
 /**
- * Génère une réponse avec OpenAI GPT-4
+ * Crée un nouveau thread pour la conversation
  */
-async function generateResponseWithOpenAI(userMessage) {
+async function createThread() {
     try {
-        // Ajouter le message de l'utilisateur à l'historique
-        conversationHistory.push({
-            role: 'user',
-            content: userMessage
-        });
+        console.log('Création d\'un nouveau thread...');
 
-        // Préparer les messages pour OpenAI
-        const messages = [
-            {
-                role: 'system',
-                content: CONFIG.SYSTEM_PROMPT
-            },
-            ...conversationHistory
-        ];
-
-        console.log('Envoi à OpenAI:', { model: CONFIG.OPENAI.MODEL, messages });
-
-        const response = await fetch(CONFIG.OPENAI.API_URL, {
+        const response = await fetch('https://api.openai.com/v1/threads', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${CONFIG.OPENAI.API_KEY}`
-            },
-            body: JSON.stringify({
-                model: CONFIG.OPENAI.MODEL,
-                messages: messages,
-                temperature: 0.7,
-                max_tokens: 500
-            })
+                'Authorization': `Bearer ${CONFIG.OPENAI.API_KEY}`,
+                'OpenAI-Beta': 'assistants=v2'
+            }
         });
 
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`Erreur OpenAI (${response.status}): ${errorText}`);
+            throw new Error(`Erreur création thread: ${errorText}`);
         }
 
         const data = await response.json();
-        console.log('Réponse OpenAI:', data);
+        threadId = data.id;
+        console.log('Thread créé:', threadId);
 
-        const assistantMessage = data.choices[0].message.content;
+    } catch (error) {
+        console.error('Erreur création thread:', error);
+        updateStatus('Erreur: Impossible de créer la conversation', 'error');
+    }
+}
 
-        // Ajouter la réponse à l'historique
-        conversationHistory.push({
-            role: 'assistant',
-            content: assistantMessage
+/**
+ * Génère une réponse avec OpenAI Assistants API et RAG
+ */
+async function generateResponseWithOpenAI(userMessage) {
+    try {
+        // Vérifier qu'on a un thread
+        if (!threadId) {
+            await createThread();
+        }
+
+        // Vérifier qu'on a un assistant ID
+        if (typeof ASSISTANT_ID === 'undefined') {
+            throw new Error('Assistant ID non configuré. Exécutez d\'abord setup-assistant.js');
+        }
+
+        console.log('Envoi du message au thread:', userMessage);
+
+        // Étape 1: Ajouter le message au thread
+        const messageResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${CONFIG.OPENAI.API_KEY}`,
+                'OpenAI-Beta': 'assistants=v2'
+            },
+            body: JSON.stringify({
+                role: 'user',
+                content: userMessage
+            })
         });
 
-        // Limiter l'historique à 10 messages pour éviter de dépasser les limites
-        if (conversationHistory.length > 10) {
-            conversationHistory = conversationHistory.slice(-10);
+        if (!messageResponse.ok) {
+            const errorText = await messageResponse.text();
+            throw new Error(`Erreur ajout message: ${errorText}`);
         }
+
+        // Étape 2: Créer un run avec l'assistant
+        console.log('Création du run avec l\'assistant...');
+
+        const runResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${CONFIG.OPENAI.API_KEY}`,
+                'OpenAI-Beta': 'assistants=v2'
+            },
+            body: JSON.stringify({
+                assistant_id: ASSISTANT_ID
+            })
+        });
+
+        if (!runResponse.ok) {
+            const errorText = await runResponse.text();
+            throw new Error(`Erreur création run: ${errorText}`);
+        }
+
+        const runData = await runResponse.json();
+        const runId = runData.id;
+
+        console.log('Run créé:', runId);
+
+        // Étape 3: Attendre la complétion du run
+        let runStatus = 'queued';
+        let attempts = 0;
+        const maxAttempts = 30; // 30 secondes max
+
+        while (runStatus !== 'completed' && attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Attendre 1 seconde
+
+            const statusResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${runId}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${CONFIG.OPENAI.API_KEY}`,
+                    'OpenAI-Beta': 'assistants=v2'
+                }
+            });
+
+            const statusData = await statusResponse.json();
+            runStatus = statusData.status;
+
+            console.log('Status du run:', runStatus);
+
+            if (runStatus === 'failed' || runStatus === 'cancelled' || runStatus === 'expired') {
+                throw new Error(`Run ${runStatus}: ${statusData.last_error?.message || 'Erreur inconnue'}`);
+            }
+
+            attempts++;
+        }
+
+        if (runStatus !== 'completed') {
+            throw new Error('Timeout: Le run n\'a pas terminé à temps');
+        }
+
+        // Étape 4: Récupérer les messages du thread
+        const messagesResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${CONFIG.OPENAI.API_KEY}`,
+                'OpenAI-Beta': 'assistants=v2'
+            }
+        });
+
+        if (!messagesResponse.ok) {
+            const errorText = await messagesResponse.text();
+            throw new Error(`Erreur récupération messages: ${errorText}`);
+        }
+
+        const messagesData = await messagesResponse.json();
+        console.log('Messages reçus:', messagesData);
+
+        // Le premier message est la réponse de l'assistant (les messages sont triés du plus récent au plus ancien)
+        const assistantMessage = messagesData.data[0].content[0].text.value;
 
         return assistantMessage;
 
     } catch (error) {
-        console.error('Erreur OpenAI:', error);
+        console.error('Erreur OpenAI Assistants API:', error);
         throw new Error('Échec de la génération de réponse: ' + error.message);
     }
 }

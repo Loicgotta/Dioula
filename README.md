@@ -1,15 +1,15 @@
 # Chat Vocal Bambara avec Djelia, OpenAI GPT-4 et ElevenLabs
 
-Application web de chat vocal en bambara utilisant l'IA de Djelia pour la reconnaissance vocale, OpenAI GPT-4 pour la génération de réponses intelligentes, et ElevenLabs pour la synthèse vocale.
+Application web de chat vocal en bambara utilisant l'IA de Djelia pour la reconnaissance vocale, OpenAI GPT-4 Assistants API avec RAG pour la génération de réponses intelligentes, et ElevenLabs pour la synthèse vocale.
 
 ## 🌟 Fonctionnalités
 
 - **Reconnaissance vocale en bambara** : Utilise l'API Djelia pour transcrire la parole en bambara
-- **IA GPT-4** : Génération de réponses intelligentes avec OpenAI GPT-4
+- **IA GPT-4 avec RAG** : Génération de réponses intelligentes avec OpenAI Assistants API et accès au dictionnaire dioula
+- **Dictionnaire intégré** : Le dictionnaire dioula-français-anglais est accessible par l'IA via File Search
 - **Synthèse vocale** : Conversion texte-parole avec ElevenLabs TTS
 - **Interface intuitive** : Interface web simple et élégante
-- **Historique de conversation** : Maintien du contexte sur les 10 derniers messages
-- **Dictionnaire dioula** : Dictionnaire dioula-français-anglais disponible pour référence
+- **Contexte conversationnel** : Maintien de la conversation via Threads API
 
 ## 🚀 Comment utiliser
 
@@ -26,6 +26,19 @@ Application web de chat vocal en bambara utilisant l'IA de Djelia pour la reconn
    - Clé API ElevenLabs
    - ID de voix ElevenLabs
 
+3. **Créez l'Assistant OpenAI avec le dictionnaire** :
+   ```bash
+   node setup-assistant.js
+   ```
+
+   Ce script va :
+   - Uploader le dictionnaire dioula vers OpenAI
+   - Créer un Vector Store pour le RAG
+   - Créer un Assistant avec File Search activé
+   - Sauvegarder l'ID de l'assistant dans `assistant-id.js`
+
+   ⏳ **Important** : Cette étape peut prendre quelques secondes. Ne l'exécutez qu'**une seule fois**.
+
 ### Lancement de l'application
 
 1. Ouvrez le fichier `index.html` dans votre navigateur web moderne (Chrome, Firefox, Edge, Safari)
@@ -34,7 +47,8 @@ Application web de chat vocal en bambara utilisant l'IA de Djelia pour la reconn
 4. Cliquez à nouveau pour arrêter l'enregistrement
 5. L'application va :
    - Transcrire votre parole avec Djelia
-   - Générer une réponse avec OpenAI GPT-4
+   - Envoyer le message à l'Assistant GPT-4 qui consulte le dictionnaire (RAG)
+   - Générer une réponse contextuelle en dioula
    - Synthétiser la réponse en audio avec ElevenLabs TTS
    - Afficher et jouer la réponse
 
@@ -67,11 +81,15 @@ Puis ouvrez http://localhost:8000 dans votre navigateur.
 - **Authentification** : Header `x-api-key`
 - **Documentation** : [djelia.cloud](https://www.djelia.cloud/)
 
-### OpenAI GPT-4
-- **Service** : Génération de réponses intelligentes
+### OpenAI Assistants API avec GPT-4
+- **Service** : Génération de réponses intelligentes avec RAG
 - **Modèle** : `gpt-4-turbo`
-- **Endpoint** : `https://api.openai.com/v1/chat/completions`
-- **Documentation** : [OpenAI API](https://platform.openai.com/docs)
+- **API** : Assistants API v2 avec File Search
+- **Endpoints** :
+  - Threads: `https://api.openai.com/v1/threads`
+  - Messages: `https://api.openai.com/v1/threads/{thread_id}/messages`
+  - Runs: `https://api.openai.com/v1/threads/{thread_id}/runs`
+- **Documentation** : [OpenAI Assistants API](https://platform.openai.com/docs/assistants)
 
 ### ElevenLabs Text-to-Speech
 - **Service** : Synthèse vocale (Text-to-Speech)
@@ -83,14 +101,17 @@ Puis ouvrez http://localhost:8000 dans votre navigateur.
 
 ```
 .
-├── index.html              # Interface utilisateur principale
-├── style.css               # Styles de l'application
-├── app.js                  # Logique JavaScript principale
-├── config.js               # Configuration et clés API (non commité)
-├── config.example.js       # Template de configuration
-├── dictionnaire-dioula.txt # Dictionnaire dioula-français-anglais
-├── .gitignore              # Fichiers à ignorer par Git
-└── README.md               # Ce fichier
+├── index.html                  # Interface utilisateur principale
+├── style.css                   # Styles de l'application
+├── app.js                      # Logique JavaScript principale
+├── config.js                   # Configuration et clés API (non commité)
+├── config.example.js           # Template de configuration
+├── assistant-id.js             # ID de l'assistant OpenAI (généré, non commité)
+├── assistant-id.example.js     # Template pour l'ID assistant
+├── setup-assistant.js          # Script de configuration de l'Assistant
+├── dictionnaire-dioula.txt     # Dictionnaire dioula-français-anglais
+├── .gitignore                  # Fichiers à ignorer par Git
+└── README.md                   # Ce fichier
 ```
 
 ## 🔐 Configuration des API
@@ -111,39 +132,44 @@ Puis ouvrez http://localhost:8000 dans votre navigateur.
 
 ## 📚 Dictionnaire Dioula et RAG
 
-Le fichier `dictionnaire-dioula.txt` contient un dictionnaire complet dioula-français-anglais.
+Le fichier `dictionnaire-dioula.txt` contient un dictionnaire complet dioula-français-anglais qui est **automatiquement accessible** à l'Assistant GPT-4 via le système RAG (Retrieval Augmented Generation).
 
-### ⚠️ Limitation actuelle
+### ✅ Comment fonctionne le RAG
 
-Avec l'API Chat standard d'OpenAI, le dictionnaire **n'est pas automatiquement accessible** à GPT-4. Le prompt système mentionne le dictionnaire, mais GPT-4 s'appuie sur ses connaissances de base du dioula.
+1. **Upload du dictionnaire** : Le script `setup-assistant.js` upload le dictionnaire vers OpenAI
+2. **Vector Store** : OpenAI crée automatiquement des embeddings et un index vectoriel
+3. **File Search** : L'Assistant utilise File Search pour chercher dans le dictionnaire
+4. **Contexte enrichi** : Les entrées pertinentes sont automatiquement ajoutées au contexte
+5. **Réponses précises** : GPT-4 peut utiliser le dictionnaire pour des traductions exactes
 
-### 🔧 Options pour intégrer le dictionnaire (RAG)
+### 🎯 Avantages du système implémenté
 
-Pour permettre à GPT-4 d'accéder réellement au dictionnaire, vous avez plusieurs options :
+- ✅ **Accès direct au dictionnaire** : L'Assistant peut chercher n'importe quelle entrée
+- ✅ **Recherche sémantique** : Trouve les mots même avec des variations orthographiques
+- ✅ **Pas de limite de contexte** : Le dictionnaire entier est disponible
+- ✅ **Coût optimisé** : File Search est inclus ($0.10/GB/jour, 1er GB gratuit)
+- ✅ **Maintenance facile** : Mettez à jour le dictionnaire et relancez `setup-assistant.js`
 
-#### Option 1 : OpenAI Assistants API (Recommandé)
-- Utiliser l'[API Assistants](https://platform.openai.com/docs/assistants/overview) avec File Search
-- Permet d'uploader le dictionnaire comme fichier de connaissance
-- GPT-4 pourra rechercher dans le dictionnaire automatiquement
-- Nécessite de modifier le code pour utiliser l'API Assistants au lieu de l'API Chat
+### 📖 Prompt système
 
-#### Option 2 : Système RAG personnalisé
-- Implémenter un système de Retrieval Augmented Generation
-- Utiliser des embeddings pour vectoriser le dictionnaire
-- Stocker dans une base de données vectorielle (Pinecone, Weaviate, etc.)
-- Récupérer les entrées pertinentes avant chaque requête à GPT-4
-- Nécessite un backend (Node.js, Python, etc.)
-
-#### Option 3 : Inclure le dictionnaire dans chaque requête
-- Inclure les entrées pertinentes du dictionnaire dans le contexte de chaque message
-- Limité par la taille du contexte de GPT-4
-- Peut augmenter les coûts
-
-### 📖 Prompt système actuel
-
-Le prompt système est configuré pour demander à GPT-4 de se comporter comme un professeur qui comprend le dioula et utilise le dictionnaire pour les traductions. Même sans accès direct au dictionnaire complet, GPT-4 a des connaissances de base du dioula/bambara.
+L'Assistant est configuré pour se comporter comme un professeur qui comprend le dioula. Il utilise le dictionnaire uploadé comme knowledge base pour :
+- Traduire du français/anglais vers le dioula
+- Comprendre les messages en bambara/dioula
+- Fournir des réponses uniquement en dioula
+- Enseigner sur n'importe quel sujet en dioula
 
 ## 🛠️ Dépannage
+
+### Erreur "Assistant ID non configuré"
+- Assurez-vous d'avoir exécuté `node setup-assistant.js` après avoir configuré vos clés API
+- Vérifiez que le fichier `assistant-id.js` a été créé
+- Si vous utilisez un serveur web, rechargez la page après avoir créé l'assistant
+
+### Le setup-assistant.js échoue
+- Vérifiez que Node.js est installé (`node --version`)
+- Vérifiez que votre clé API OpenAI est valide
+- Vérifiez votre connexion internet
+- Consultez les logs pour voir l'erreur exacte
 
 ### Le microphone ne fonctionne pas
 - Vérifiez que votre navigateur a l'autorisation d'accéder au microphone
@@ -170,7 +196,8 @@ Le prompt système est configuré pour demander à GPT-4 de se comporter comme u
 ## 📚 Ressources
 
 - [Documentation Djelia](https://www.djelia.cloud/)
-- [Documentation OpenAI](https://platform.openai.com/docs)
+- [Documentation OpenAI Assistants API](https://platform.openai.com/docs/assistants)
+- [Documentation OpenAI File Search](https://platform.openai.com/docs/assistants/tools/file-search)
 - [Documentation ElevenLabs TTS](https://elevenlabs.io/docs/api-reference/text-to-speech)
 - [Obtenir une clé API OpenAI](https://platform.openai.com/api-keys)
 - [Obtenir une clé API ElevenLabs](https://elevenlabs.io/app/settings/api-keys)

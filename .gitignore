@@ -1,5 +1,6 @@
 # Fichiers de configuration contenant des clés API
 config.js
+assistant-id.js
 
 # Fichiers système
 .DS_Store
