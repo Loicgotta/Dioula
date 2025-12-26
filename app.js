@@ -236,7 +236,7 @@ async function generateResponseWithWebhook(userMessage) {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                message: userMessage
+                query: userMessage
             })
         });
 
@@ -250,7 +250,7 @@ async function generateResponseWithWebhook(userMessage) {
 
         // Extraire la réponse du webhook
         // Adapter selon le format de réponse de votre webhook n8n
-        const assistantMessage = data.response || data.message || data.text || JSON.stringify(data);
+        const assistantMessage = data.response || data.message || data.text || data.query || JSON.stringify(data);
 
         return assistantMessage;
 
