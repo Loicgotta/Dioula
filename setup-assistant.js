@@ -8,10 +8,15 @@
 const fs = require('fs');
 const path = require('path');
 
-// Charger la configuration
-require('./config.js');
+// Lire le fichier de configuration
+const configPath = path.join(__dirname, 'config.js');
+const configContent = fs.readFileSync(configPath, 'utf8');
 
-const OPENAI_API_KEY = CONFIG.OPENAI.API_KEY;
+// Extraire les valeurs de configuration avec regex
+const OPENAI_API_KEY = configContent.match(/API_KEY:\s*'([^']+)'/)[1];
+const OPENAI_MODEL = configContent.match(/MODEL:\s*'([^']+)'/)[1];
+const SYSTEM_PROMPT = configContent.match(/SYSTEM_PROMPT:\s*`([^`]+)`/s)[1];
+
 const DICTIONARY_PATH = path.join(__dirname, 'dictionnaire-dioula.txt');
 
 async function setupAssistant() {
@@ -38,7 +43,7 @@ async function setupAssistant() {
 
         if (!fileResponse.ok) {
             const errorText = await fileResponse.text();
-            throw new Error(`Erreur upload fichier: ${errorText}`);
+            throw new Error(`Erreur upload fichier (${fileResponse.status}): ${errorText}`);
         }
 
         const fileData = await fileResponse.json();
@@ -62,15 +67,15 @@ async function setupAssistant() {
 
         if (!vectorStoreResponse.ok) {
             const errorText = await vectorStoreResponse.text();
-            throw new Error(`Erreur création vector store: ${errorText}`);
+            throw new Error(`Erreur création vector store (${vectorStoreResponse.status}): ${errorText}`);
         }
 
         const vectorStoreData = await vectorStoreResponse.json();
         console.log('✅ Vector Store créé:', vectorStoreData.id);
 
         // Attendre que le fichier soit traité
-        console.log('\n⏳ Attente du traitement du fichier...');
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        console.log('\n⏳ Attente du traitement du fichier (10 secondes)...');
+        await new Promise(resolve => setTimeout(resolve, 10000));
 
         // Étape 3: Créer l'Assistant avec file_search
         console.log('\n🤖 Étape 3: Création de l\'Assistant...');
@@ -83,9 +88,9 @@ async function setupAssistant() {
                 'OpenAI-Beta': 'assistants=v2'
             },
             body: JSON.stringify({
-                name: 'Professeur Dioula',
-                instructions: CONFIG.SYSTEM_PROMPT,
-                model: CONFIG.OPENAI.MODEL,
+                name: 'Ami Dioula',
+                instructions: SYSTEM_PROMPT,
+                model: OPENAI_MODEL,
                 tools: [{ type: 'file_search' }],
                 tool_resources: {
                     file_search: {
@@ -97,15 +102,14 @@ async function setupAssistant() {
 
         if (!assistantResponse.ok) {
             const errorText = await assistantResponse.text();
-            throw new Error(`Erreur création assistant: ${errorText}`);
+            throw new Error(`Erreur création assistant (${assistantResponse.status}): ${errorText}`);
         }
 
         const assistantData = await assistantResponse.json();
         console.log('✅ Assistant créé:', assistantData.id);
 
         // Sauvegarder l'ID de l'assistant dans un fichier
-        const configUpdate = `
-// ID de l'Assistant OpenAI (généré par setup-assistant.js)
+        const configUpdate = `// ID de l'Assistant OpenAI (généré par setup-assistant.js)
 // NE PAS MODIFIER MANUELLEMENT
 const ASSISTANT_ID = '${assistantData.id}';
 `;
@@ -120,11 +124,17 @@ const ASSISTANT_ID = '${assistantData.id}';
         console.log(`   - Fichier ID: ${fileData.id}`);
         console.log(`   - Vector Store ID: ${vectorStoreData.id}`);
         console.log(`   - Assistant ID: ${assistantData.id}`);
+        console.log(`   - Nom: Ami Dioula (personnalité conversationnelle)`);
+        console.log(`   - Modèle: ${OPENAI_MODEL}`);
         console.log('\n💾 L\'ID de l\'assistant a été sauvegardé dans assistant-id.js');
-        console.log('\n🎯 Vous pouvez maintenant utiliser l\'application avec le RAG activé !');
+        console.log('\n🎯 Le dictionnaire dioula est maintenant accessible en RAG !');
+        console.log('🎯 Vous pouvez utiliser l\'application - l\'agent aura accès au dictionnaire complet !');
 
     } catch (error) {
         console.error('\n❌ Erreur:', error.message);
+        if (error.cause) {
+            console.error('Cause:', error.cause);
+        }
         process.exit(1);
     }
 }
