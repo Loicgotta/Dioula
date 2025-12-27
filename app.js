@@ -225,6 +225,7 @@ async function transcribeWithDjelia(audioBlob) {
 
 /**
  * Génère une réponse via le webhook n8n
+ * Accepte tous les formats de réponse (JSON, text, etc.)
  */
 async function generateResponseWithWebhook(userMessage) {
     try {
@@ -245,12 +246,52 @@ async function generateResponseWithWebhook(userMessage) {
             throw new Error(`Erreur webhook (${response.status}): ${errorText}`);
         }
 
-        const data = await response.json();
-        console.log('Réponse du webhook:', data);
+        // Récupérer le Content-Type de la réponse
+        const contentType = response.headers.get('content-type');
+        let assistantMessage = '';
 
-        // Extraire la réponse du webhook
-        // Adapter selon le format de réponse de votre webhook n8n
-        const assistantMessage = data.response || data.message || data.text || data.query || JSON.stringify(data);
+        // Essayer de parser en JSON
+        if (contentType && contentType.includes('application/json')) {
+            try {
+                const data = await response.json();
+                console.log('Réponse JSON du webhook:', data);
+
+                // Chercher la réponse dans différents champs possibles
+                if (typeof data === 'string') {
+                    assistantMessage = data;
+                } else if (data.response) {
+                    assistantMessage = data.response;
+                } else if (data.message) {
+                    assistantMessage = data.message;
+                } else if (data.text) {
+                    assistantMessage = data.text;
+                } else if (data.query) {
+                    assistantMessage = data.query;
+                } else if (data.output) {
+                    assistantMessage = data.output;
+                } else if (data.result) {
+                    assistantMessage = data.result;
+                } else if (Array.isArray(data) && data.length > 0) {
+                    // Si c'est un tableau, prendre le premier élément
+                    assistantMessage = typeof data[0] === 'string' ? data[0] : JSON.stringify(data[0]);
+                } else {
+                    // Convertir l'objet JSON en string si aucun champ reconnu
+                    assistantMessage = JSON.stringify(data);
+                }
+            } catch (jsonError) {
+                // Si le parsing JSON échoue, traiter comme du texte
+                console.warn('Parsing JSON échoué, traitement en texte:', jsonError);
+                assistantMessage = await response.text();
+            }
+        } else {
+            // Traiter comme du texte brut
+            assistantMessage = await response.text();
+            console.log('Réponse texte du webhook:', assistantMessage);
+        }
+
+        if (!assistantMessage || assistantMessage.trim() === '') {
+            throw new Error('Réponse vide du webhook');
+        }
 
         return assistantMessage;
 
