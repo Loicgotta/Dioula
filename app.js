@@ -246,53 +246,50 @@ async function generateResponseWithWebhook(userMessage) {
             throw new Error(`Erreur webhook (${response.status}): ${errorText}`);
         }
 
-        // Récupérer le Content-Type de la réponse
-        const contentType = response.headers.get('content-type');
+        // Lire la réponse en texte d'abord
+        const responseText = await response.text();
+        console.log('Réponse brute du webhook:', responseText);
+
         let assistantMessage = '';
 
         // Essayer de parser en JSON
-        if (contentType && contentType.includes('application/json')) {
-            try {
-                const data = await response.json();
-                console.log('Réponse JSON du webhook:', data);
+        try {
+            const data = JSON.parse(responseText);
+            console.log('✅ Réponse parsée en JSON:', data);
 
-                // Chercher la réponse dans différents champs possibles
-                if (typeof data === 'string') {
-                    assistantMessage = data;
-                } else if (data.response) {
-                    assistantMessage = data.response;
-                } else if (data.message) {
-                    assistantMessage = data.message;
-                } else if (data.text) {
-                    assistantMessage = data.text;
-                } else if (data.query) {
-                    assistantMessage = data.query;
-                } else if (data.output) {
-                    assistantMessage = data.output;
-                } else if (data.result) {
-                    assistantMessage = data.result;
-                } else if (Array.isArray(data) && data.length > 0) {
-                    // Si c'est un tableau, prendre le premier élément
-                    assistantMessage = typeof data[0] === 'string' ? data[0] : JSON.stringify(data[0]);
-                } else {
-                    // Convertir l'objet JSON en string si aucun champ reconnu
-                    assistantMessage = JSON.stringify(data);
-                }
-            } catch (jsonError) {
-                // Si le parsing JSON échoue, traiter comme du texte
-                console.warn('Parsing JSON échoué, traitement en texte:', jsonError);
-                assistantMessage = await response.text();
+            // Chercher la réponse dans différents champs possibles
+            if (typeof data === 'string') {
+                assistantMessage = data;
+            } else if (data.response) {
+                assistantMessage = data.response;
+            } else if (data.message) {
+                assistantMessage = data.message;
+            } else if (data.text) {
+                assistantMessage = data.text;
+            } else if (data.query) {
+                assistantMessage = data.query;
+            } else if (data.output) {
+                assistantMessage = data.output;
+            } else if (data.result) {
+                assistantMessage = data.result;
+            } else if (Array.isArray(data) && data.length > 0) {
+                // Si c'est un tableau, prendre le premier élément
+                assistantMessage = typeof data[0] === 'string' ? data[0] : JSON.stringify(data[0]);
+            } else {
+                // Convertir l'objet JSON en string si aucun champ reconnu
+                assistantMessage = JSON.stringify(data);
             }
-        } else {
-            // Traiter comme du texte brut
-            assistantMessage = await response.text();
-            console.log('Réponse texte du webhook:', assistantMessage);
+        } catch (jsonError) {
+            // Si le parsing JSON échoue, utiliser le texte brut
+            console.log('ℹ️ Pas du JSON, utilisation du texte brut');
+            assistantMessage = responseText;
         }
 
         if (!assistantMessage || assistantMessage.trim() === '') {
             throw new Error('Réponse vide du webhook');
         }
 
+        console.log('📝 Message final extrait:', assistantMessage);
         return assistantMessage;
 
     } catch (error) {
