@@ -1,6 +1,7 @@
 # Fichiers de configuration contenant des clés API
 config.js
 assistant-id.js
+.env
 
 # Fichiers système
 .DS_Store
@@ -12,3 +13,4 @@ npm-debug.log*
 
 # Dépendances
 node_modules/
+package-lock.json
