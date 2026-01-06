@@ -38,6 +38,12 @@ app.post('/api/transcribe', upload.single('file'), async (req, res) => {
             return res.status(400).json({ error: 'Aucun fichier audio fourni' });
         }
 
+        // Vérifier que la clé API est configurée
+        if (!DJELIA_API_KEY) {
+            console.error('❌ DJELIA_API_KEY non configurée');
+            return res.status(500).json({ error: 'Configuration serveur incorrecte' });
+        }
+
         const FormData = require('form-data');
         const formData = new FormData();
         formData.append('file', req.file.buffer, {
@@ -45,16 +51,20 @@ app.post('/api/transcribe', upload.single('file'), async (req, res) => {
             contentType: req.file.mimetype
         });
 
+        console.log('🔄 Envoi à Djelia:', req.file.originalname, req.file.size, 'bytes');
+
         const response = await fetch('https://djelia.cloud/api/v1/models/transcribe', {
             method: 'POST',
             headers: {
-                'x-api-key': DJELIA_API_KEY
+                'x-api-key': DJELIA_API_KEY,
+                ...formData.getHeaders()
             },
             body: formData
         });
 
         if (!response.ok) {
             const errorText = await response.text();
+            console.error('❌ Djelia API error:', response.status, errorText);
             throw new Error(`Djelia API error: ${errorText}`);
         }
 
