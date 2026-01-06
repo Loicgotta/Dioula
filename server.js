@@ -195,4 +195,16 @@ app.listen(PORT, () => {
     console.log(`🚀 Serveur démarré sur le port ${PORT}`);
     console.log(`📍 URL: http://localhost:${PORT}`);
     console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
+
+    // Vérifier les variables d'environnement critiques
+    console.log('\n🔐 Vérification des variables d\'environnement:');
+    console.log(`   DJELIA_API_KEY: ${DJELIA_API_KEY ? '✅ Configurée' : '❌ MANQUANTE'}`);
+    console.log(`   ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY ? '✅ Configurée' : '❌ MANQUANTE'}`);
+    console.log(`   ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID ? '✅ Configurée (' + ELEVENLABS_VOICE_ID + ')' : '❌ MANQUANTE'}`);
+    console.log(`   N8N_WEBHOOK_URL: ${N8N_WEBHOOK_URL ? '✅ Configurée' : '❌ MANQUANTE'}\n`);
+
+    if (!DJELIA_API_KEY || !ELEVENLABS_API_KEY || !ELEVENLABS_VOICE_ID || !N8N_WEBHOOK_URL) {
+        console.error('⚠️  ATTENTION: Des variables d\'environnement sont manquantes!');
+        console.error('⚠️  L\'application ne fonctionnera pas correctement.');
+    }
 });
