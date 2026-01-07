@@ -69,7 +69,8 @@ app.post('/api/transcribe', upload.single('file'), async (req, res) => {
         }
 
         const data = await response.json();
-        console.log('✅ Transcription réussie:', data.transcription);
+        console.log('📦 Réponse complète de Djelia:', JSON.stringify(data, null, 2));
+        console.log('✅ Transcription extraite:', data.transcription || data.text || 'VIDE');
         res.json(data);
 
     } catch (error) {
