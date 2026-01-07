@@ -70,8 +70,23 @@ app.post('/api/transcribe', upload.single('file'), async (req, res) => {
 
         const data = await response.json();
         console.log('📦 Réponse complète de Djelia:', JSON.stringify(data, null, 2));
-        console.log('✅ Transcription extraite:', data.transcription || data.text || 'VIDE');
-        res.json(data);
+
+        // Djelia retourne un tableau avec un objet contenant le texte
+        let transcription = '';
+        if (Array.isArray(data) && data.length > 0) {
+            transcription = data[0].text || data[0].transcription || '';
+        } else {
+            transcription = data.text || data.transcription || '';
+        }
+
+        console.log('✅ Transcription extraite:', transcription);
+
+        // Retourner dans un format standardisé
+        res.json({
+            transcription: transcription,
+            text: transcription,
+            original: data
+        });
 
     } catch (error) {
         console.error('❌ Erreur transcription:', error);
