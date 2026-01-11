@@ -3,7 +3,6 @@
 const recordBtn = document.getElementById('recordBtn');
 const btnText = recordBtn.querySelector('.btn-text');
 const statusDiv = document.getElementById('status');
-const messagesDiv = document.getElementById('messages');
 const audioPlayer = document.getElementById('audioPlayer');
 const audioPlayerContainer = document.getElementById('audioPlayerContainer');
 
@@ -74,7 +73,6 @@ async function startRecording() {
 
     } catch (error) {
         updateStatus('Erreur: Impossible d\'accéder au microphone', 'error');
-        addMessage('system', 'Erreur: Veuillez autoriser l\'accès au microphone');
     }
 }
 
@@ -99,8 +97,6 @@ async function processAudio(audioBlob) {
             throw new Error('Échec du traitement');
         }
 
-        addMessage('user', transcript);
-
         updateStatus('🤖 Réflexion...', 'active');
         const aiResponse = await generateResponse(transcript);
 
@@ -108,14 +104,11 @@ async function processAudio(audioBlob) {
             throw new Error('Aucune réponse');
         }
 
-        addMessage('assistant', aiResponse);
-
         updateStatus('🔊 Préparation...', 'active');
         await synthesizeSpeech(aiResponse);
 
     } catch (error) {
         updateStatus('Erreur: ' + error.message, 'error');
-        addMessage('error', 'Erreur: ' + error.message);
     } finally {
         recordBtn.classList.remove('processing');
         btnText.textContent = 'Appuyer pour parler';
@@ -211,18 +204,6 @@ function playAudio(audioBlob) {
     audioPlayer.onended = () => {
         URL.revokeObjectURL(audioUrl);
     };
-}
-
-function addMessage(type, text) {
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${type}`;
-
-    const p = document.createElement('p');
-    p.textContent = text;
-    messageDiv.appendChild(p);
-
-    messagesDiv.appendChild(messageDiv);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
 function updateStatus(text, type = '') {
