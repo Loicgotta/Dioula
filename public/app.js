@@ -69,7 +69,7 @@ async function startRecording() {
 
         recordBtn.classList.add('recording');
         btnText.textContent = 'Arrêter l\'enregistrement';
-        updateStatus('🔴 Enregistrement en cours... Parlez en bambara', 'active');
+        updateStatus('🔴 Enregistrement en cours... Parlez en dioula', 'active');
 
     } catch (error) {
         updateStatus('Erreur: Impossible d\'accéder au microphone', 'error');
